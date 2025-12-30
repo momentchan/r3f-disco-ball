@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useTexture, useGLTF } from "@react-three/drei";
 import * as THREE from "three";
@@ -12,8 +12,10 @@ import { instancedArray } from "three/tsl";
 extend({ SpriteNodeMaterial, MeshPhysicalNodeMaterial });
 
 export default function BasicMesh() {
-  const { gl, scene } = useThree();
+  const { gl, scene, camera } = useThree();
   const meshRef = useRef(null);
+  const planeRef = useRef(null);
+  const hitPositionRef = useRef(new THREE.Vector3(0, 0, 0));
 
   // Load GLB models
   const ball = useGLTF("/models/team-ball.glb");
@@ -34,6 +36,53 @@ export default function BasicMesh() {
 
   // Setup mesh and compute update
   const computeUpdateRef = useRef(null);
+  const uniformsRef = useRef(null);
+
+  // Create invisible raycast plane
+  useEffect(() => {
+    const planeGeometry = new THREE.PlaneGeometry(10, 10);
+    const planeMaterial = new THREE.MeshBasicMaterial({ 
+      side: THREE.DoubleSide,
+      visible: false,
+    });
+    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+    plane.position.set(0, 0, 0);
+    scene.add(plane);
+    planeRef.current = plane;
+
+    return () => {
+      scene.remove(plane);
+      planeGeometry.dispose();
+      planeMaterial.dispose();
+    };
+  }, [scene]);
+
+  // Handle mouse/touch movement for raycasting
+  useEffect(() => {
+    const handlePointerMove = (event) => {
+      if (!planeRef.current || !camera) return;
+
+      const rect = event.target.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
+      
+      const intersects = raycaster.intersectObject(planeRef.current);
+      if (intersects.length > 0) {
+
+        hitPositionRef.current.copy(intersects[0].point);
+      }
+    };
+
+    const canvas = gl.domElement;
+    canvas.addEventListener("pointermove", handlePointerMove);
+
+    return () => {
+      canvas.removeEventListener("pointermove", handlePointerMove);
+    };
+  }, [gl, camera]);
 
   useEffect(() => {
     const ballData = extractBallData(ball.scene);
@@ -51,7 +100,9 @@ export default function BasicMesh() {
     const mesh = new THREE.Mesh(mergedGeometry, material);
 
     meshRef.current = mesh;
-    computeUpdateRef.current = createComputeUpdate(positions, ringData, count);
+    const computeResult = createComputeUpdate(positions, ringData, count);
+    computeUpdateRef.current = computeResult.compute;
+    uniformsRef.current = computeResult.uniforms;
 
     scene.add(mesh);
 
@@ -60,12 +111,15 @@ export default function BasicMesh() {
       mesh.geometry.dispose();
       mesh.material.dispose();
       computeUpdateRef.current = null;
+      uniformsRef.current = null;
     };
   }, [ball, cube, scene]);
 
   // Run compute update
-  useFrame(() => {
-    if (computeUpdateRef.current) {
+  useFrame((state) => {
+    if (computeUpdateRef.current && uniformsRef.current) {
+      uniformsRef.current.hitPosition.value = hitPositionRef.current;
+      uniformsRef.current.time.value = state.clock.elapsedTime;
       gl.compute(computeUpdateRef.current);
     }
   });
