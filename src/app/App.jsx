@@ -34,6 +34,7 @@ export default function App() {
             dpr={[1, 2]}
             performance={{ min: 0.5, max: 1 }}
         >
+            <color attach="background" args={["#ffffff"]} />
             <AdaptiveDpr pixelated />
             <CameraControls makeDefault />
             <BasicMesh />
