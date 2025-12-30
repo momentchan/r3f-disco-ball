@@ -1,6 +1,6 @@
 import { AdaptiveDpr, CameraControls } from "@react-three/drei";
 import { CanvasCapture } from "@packages/r3f-gist/components/utility";
-import BasicMesh from '../components/BasicMesh'
+import DiscoBall from '../components/DiscoBall'
 import { LevaWrapper } from "@packages/r3f-gist/components";
 import { Canvas } from "@react-three/fiber";
 import { WebGPURenderer } from "three/webgpu";
@@ -37,7 +37,7 @@ export default function App() {
             <color attach="background" args={["#ffffff"]} />
             <AdaptiveDpr pixelated />
             <CameraControls makeDefault />
-            <BasicMesh />
+            <DiscoBall />
             <CanvasCapture />
         </Canvas>
     </>

@@ -1,21 +1,53 @@
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useTexture, useGLTF } from "@react-three/drei";
+import { useControls } from "leva";
 import * as THREE from "three";
 import { SpriteNodeMaterial, MeshPhysicalNodeMaterial } from "three/webgpu";
 import { extend } from "@react-three/fiber";
 import { extractBallData, prepareCubeGeometry, createMergedGeometry } from "./utils/geometryUtils";
 import { createMaterial } from "./utils/materialUtils";
 import { createComputeUpdate } from "./utils/computeUtils";
+import { createRaycastPlane, setupRaycastHandler } from "./utils/raycastUtils";
 import { instancedArray } from "three/tsl";
 
 extend({ SpriteNodeMaterial, MeshPhysicalNodeMaterial });
 
-export default function BasicMesh() {
+export default function DiscoBall() {
   const { gl, scene, camera } = useThree();
   const meshRef = useRef(null);
   const planeRef = useRef(null);
   const hitPositionRef = useRef(new THREE.Vector3(0, 0, 0));
+  const computeUpdateRef = useRef(null);
+  const uniformsRef = useRef(null);
+
+  // Leva controls
+  const { speed, timeMultiplier, roughness, metalness } = useControls("Disco Ball", {
+    speed: {
+      value: 1.0,
+      min: 0,
+      max: 5,
+      step: 0.1,
+    },
+    timeMultiplier: {
+      value: 2.0,
+      min: 0,
+      max: 10,
+      step: 0.1,
+    },
+    roughness: {
+      value: 0.4,
+      min: 0,
+      max: 1,
+      step: 0.01,
+    },
+    metalness: {
+      value: 1,
+      min: 0,
+      max: 1,
+      step: 0.01,
+    },
+  });
 
   // Load GLB models
   const ball = useGLTF("/models/team-ball.glb");
@@ -34,55 +66,25 @@ export default function BasicMesh() {
     }
   }, [envTexture, scene]);
 
-  // Setup mesh and compute update
-  const computeUpdateRef = useRef(null);
-  const uniformsRef = useRef(null);
-
-  // Create invisible raycast plane
+  // Setup raycast plane and handler
   useEffect(() => {
-    const planeGeometry = new THREE.PlaneGeometry(10, 10);
-    const planeMaterial = new THREE.MeshBasicMaterial({ 
-      side: THREE.DoubleSide,
-      visible: false,
-    });
-    const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-    plane.position.set(0, 0, 0);
-    scene.add(plane);
+    const { plane, dispose: disposePlane } = createRaycastPlane(scene);
     planeRef.current = plane;
 
-    return () => {
-      scene.remove(plane);
-      planeGeometry.dispose();
-      planeMaterial.dispose();
-    };
-  }, [scene]);
-
-  // Handle mouse/touch movement for raycasting
-  useEffect(() => {
-    const handlePointerMove = (event) => {
-      if (!planeRef.current || !camera) return;
-
-      const rect = event.target.getBoundingClientRect();
-      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-      const raycaster = new THREE.Raycaster();
-      raycaster.setFromCamera(new THREE.Vector2(x, y), camera);
-      
-      const intersects = raycaster.intersectObject(planeRef.current);
-      if (intersects.length > 0) {
-
-        hitPositionRef.current.copy(intersects[0].point);
+    const cleanupHandler = setupRaycastHandler(
+      gl.domElement,
+      camera,
+      plane,
+      (point) => {
+        hitPositionRef.current.copy(point);
       }
-    };
-
-    const canvas = gl.domElement;
-    canvas.addEventListener("pointermove", handlePointerMove);
+    );
 
     return () => {
-      canvas.removeEventListener("pointermove", handlePointerMove);
+      cleanupHandler();
+      disposePlane();
     };
-  }, [gl, camera]);
+  }, [scene, gl, camera]);
 
   useEffect(() => {
     const ballData = extractBallData(ball.scene);
@@ -113,14 +115,26 @@ export default function BasicMesh() {
       computeUpdateRef.current = null;
       uniformsRef.current = null;
     };
-  }, [ball, cube, scene]);
+  }, [ball, cube, scene, envTexture]);
 
   // Run compute update
   useFrame((state) => {
     if (computeUpdateRef.current && uniformsRef.current) {
       uniformsRef.current.hitPosition.value = hitPositionRef.current;
-      uniformsRef.current.time.value = state.clock.elapsedTime;
+      uniformsRef.current.time.value = state.clock.elapsedTime * timeMultiplier;
+      uniformsRef.current.speed.value = speed;
       gl.compute(computeUpdateRef.current);
+    }
+
+    // Update material properties in real-time
+    if (meshRef.current?.material) {
+      meshRef.current.material.roughness = roughness;
+      meshRef.current.material.metalness = metalness;
+    }
+
+    // Make raycast plane always face camera
+    if (planeRef.current && camera) {
+      planeRef.current.lookAt(camera.position);
     }
   });
 

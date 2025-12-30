@@ -18,9 +18,10 @@ export function extractBallData(ballScene) {
   const ringDataArray = new Float32Array(count);
 
   for (let i = 0; i < count; i++) {
-    totalPointsData[i * 3] = positions[i * 3];
-    totalPointsData[i * 3 + 1] = positions[i * 3 + 1];
-    totalPointsData[i * 3 + 2] = positions[i * 3 + 2];
+    const idx = i * 3;
+    totalPointsData[idx] = positions[idx];
+    totalPointsData[idx + 1] = positions[idx + 1];
+    totalPointsData[idx + 2] = positions[idx + 2];
     ringDataArray[i] = ringPositions[i];
   }
 
@@ -32,7 +33,7 @@ export function extractBallData(ballScene) {
 }
 
 /**
- * Prepare and transform cube geometry
+ * Prepare and transform cube geometry for instancing
  */
 export function prepareCubeGeometry(cubeScene) {
   if (!cubeScene?.children[0]?.geometry) {
@@ -48,7 +49,7 @@ export function prepareCubeGeometry(cubeScene) {
 }
 
 /**
- * Create merged geometry with FBO index attributes
+ * Create merged geometry with FBO index attributes for instancing
  */
 export function createMergedGeometry(baseGeometry, count) {
   const geometries = [];
@@ -57,10 +58,7 @@ export function createMergedGeometry(baseGeometry, count) {
     const clonedGeo = baseGeometry.clone();
     const vertexCount = clonedGeo.attributes.position.count;
     const indexArray = new Float32Array(vertexCount).fill(i);
-    clonedGeo.setAttribute(
-      "fboIndex",
-      new THREE.BufferAttribute(indexArray, 1)
-    );
+    clonedGeo.setAttribute("fboIndex", new THREE.BufferAttribute(indexArray, 1));
     geometries.push(clonedGeo);
   }
 
