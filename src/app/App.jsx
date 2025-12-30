@@ -5,10 +5,9 @@ import { LevaWrapper } from "@packages/r3f-gist/components";
 import { Canvas } from "@react-three/fiber";
 import { WebGPURenderer } from "three/webgpu";
 import { useState } from "react";
+import * as THREE from "three";
 
 export default function App() {
-    const [frameloop, setFrameloop] = useState("never");
-    
     return <>
         <LevaWrapper />
 
@@ -28,6 +27,7 @@ export default function App() {
                   alpha: false,
                   stencil: false,
                   shadowMap: true,
+                  toneMapping: THREE.ACESFilmicToneMapping
                 });
                 return renderer.init().then(() => renderer);
               }}

@@ -96,7 +96,7 @@ export default function BasicMesh() {
     const positions = instancedArray(totalPointsData, "vec3");
     const ringData = instancedArray(ringDataArray, "float");
     const mergedGeometry = createMergedGeometry(cubeGeometry, count);
-    const material = createMaterial(positions);
+    const material = createMaterial(positions, envTexture);
     const mesh = new THREE.Mesh(mergedGeometry, material);
 
     meshRef.current = mesh;
