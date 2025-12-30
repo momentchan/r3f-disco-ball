@@ -4,7 +4,8 @@ A React Three Fiber (R3F) implementation of an interactive disco ball effect usi
 
 [**Live Demo**](https://disco-ball.pages.dev/)
 
-<img src='Screenshot.png' width="480px">
+<img width="1372" height="1240" alt="image" src="https://github.com/user-attachments/assets/e8926d8f-815a-40ec-9e5d-fd17ea6175ea" />
+
 
 ## About
 
